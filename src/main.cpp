@@ -20,6 +20,8 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <random>
+#include <ctime>
 
 namespace {
 namespace fs = std::filesystem;
@@ -111,7 +113,7 @@ struct OrbitCamera {
                     {0.0f, 1.0f, 0.0f}, 45.0f, CAMERA_PERSPECTIVE};
     float yaw = 0.75f;
     float pitch = 0.4f;
-    float distance = 8.0f;
+    float distance = 20.0f;
 
     void update(bool mouseCaptured) {
         if (!mouseCaptured) {
@@ -230,7 +232,30 @@ int run(const Options& options) {
     int frames = 0;
     constexpr double step = 1.0 / 60.0;
     double accumulator = 0.0;
+    // DUNGEON ADDITION START 0 = floor, 1 = wall, 2 = start, 3 = exit
+    constexpr int size = 12;
+    int dungeon[size][size]{};
 
+    std::mt19937 rng(static_cast<unsigned int>(std::time(nullptr)));
+    std::uniform_int_distribution<int> chance(0, 99);
+
+    auto generateDungeon = [&]() {
+        for (int z = 0; z < size; ++z) {
+            for (int x = 0; x < size; ++x) {
+                if (x == 0 || z == 0 || x == size - 1 || z == size - 1) {
+                    dungeon[z][x] = 1;
+                } else {
+                    dungeon[z][x] = chance(rng) < 28 ? 1 : 0;
+                }
+            }
+        }
+
+        dungeon[1][1] = 2;
+        dungeon[size - 2][size - 2] = 3;
+    };
+
+    generateDungeon();
+    // DUNGEON ADDITION END
     while (running && !WindowShouldClose()) {
         const double elapsed = std::clamp(static_cast<double>(GetFrameTime()), 0.0, 0.25);
         BeginDrawing();
@@ -245,6 +270,9 @@ int run(const Options& options) {
         keyboardCaptured = ImGui::GetIO().WantCaptureKeyboard;
 #endif
         if (!keyboardCaptured && IsKeyPressed(KEY_ESCAPE)) running = false;
+        if (!keyboardCaptured && IsKeyPressed(KEY_R)) {
+            generateDungeon();
+        }
         camera.update(mouseCaptured);
         if (playing) {
             accumulator += elapsed;
@@ -259,10 +287,37 @@ int run(const Options& options) {
         } else {
             accumulator = 0.0;
         }
+        // START
         BeginMode3D(camera.native);
+
         DrawGrid(20, 1.0f);
+
+        // Draw every dungeon tile.
+        for (int z = 0; z < size; ++z) {
+            for (int x = 0; x < size; ++x) {
+                float worldX = (x - size / 2) * 1.5f;
+                float worldZ = (z - size / 2) * 1.5f;
+
+                // Floor tile
+                DrawCube(Vector3{worldX, -0.1f, worldZ}, 1.5f, 0.2f, 1.5f, DARKGRAY);
+
+                if (dungeon[z][x] == 1) {
+                    // Wall
+                    DrawCube(Vector3{worldX, 0.8f, worldZ}, 1.5f, 1.6f, 1.5f, GRAY);
+                } else if (dungeon[z][x] == 2) {
+                    // Starting point
+                    DrawCube(Vector3{worldX, 0.2f, worldZ}, 0.8f, 0.4f, 0.8f, GREEN);
+                } else if (dungeon[z][x] == 3) {
+                    // Exit
+                    DrawCube(Vector3{worldX, 0.3f, worldZ}, 0.8f, 0.6f, 0.8f, GOLD);
+                }
+            }
+        }
+
         engine::drawScene(world, assets);
+
         EndMode3D();
+        // END
         DrawText("C++20 / raylib / EnTT / JSON", 16, GetScreenHeight() - 30, 18, RAYWHITE);
 #if SEED_WITH_EDITOR
         rlImGuiEnd();
