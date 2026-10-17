@@ -278,7 +278,7 @@ int run(const Options& options) {
             accumulator += elapsed;
             int steps = 0;
             while (accumulator >= step && steps < 8) {
-                engine::fixedUpdate(world, static_cast<float>(step));
+                //engine::fixedUpdate(world, static_cast<float>(step)); (CUT OUT TO REMOVE CUBES)
                 accumulator -= step;
                 ++steps;
             }
@@ -314,7 +314,7 @@ int run(const Options& options) {
             }
         }
 
-        engine::drawScene(world, assets);
+        //engine::drawScene(world, assets); (NEEDED TO COMMENT OUT TO REMOVE CUBES)
 
         EndMode3D();
         // END
